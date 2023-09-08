@@ -230,7 +230,7 @@ print("TRAINING COMPLETE!")
 # In[ ]:
 
 
-base_path = "/mnt/data/"
+base_path = "./"
 base_name = "pinn_model"
 extension = ".pth"
 
