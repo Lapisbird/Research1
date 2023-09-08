@@ -35,7 +35,6 @@ t_bounds = [0, 1]
 num_data_points = 100
 num_collocation_points = 1000
 proportion_t_0 = 0.4 #the proportion of the data points which will exist at various points x along the boundary t = 0. The rest will be split between the boundaries x = -1 and x = 1 for all t
-ver
 
 
 # Generating Data
