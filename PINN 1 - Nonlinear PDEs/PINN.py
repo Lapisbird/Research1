@@ -3,7 +3,7 @@
 
 # Import statements
 
-# In[212]:
+# In[228]:
 
 
 import os
@@ -23,9 +23,11 @@ import pyDOE2
 from torch.autograd.functional import jacobian, hessian
 
 
+# 
+
 # Variables
 
-# In[213]:
+# In[229]:
 
 
 x_bounds = [-1, 1]
@@ -33,11 +35,12 @@ t_bounds = [0, 1]
 num_data_points = 100
 num_collocation_points = 1000
 proportion_t_0 = 0.4 #the proportion of the data points which will exist at various points x along the boundary t = 0. The rest will be split between the boundaries x = -1 and x = 1 for all t
+ver
 
 
 # Generating Data
 
-# In[214]:
+# In[230]:
 
 
 num_points_t_0 = (int) (num_data_points * proportion_t_0)
@@ -68,7 +71,7 @@ data_points, labels = map(np.array, map(list, zip(*combined_labels_data)) )
 
 # Preparing the Dataset and Dataloader
 
-# In[215]:
+# In[231]:
 
 
 class PINN_DataSet(Dataset):
@@ -99,7 +102,7 @@ trainloader = DataLoader(
 
 # Collocation Points
 
-# In[216]:
+# In[232]:
 
 
 def lhs_samples(n): #generate n collocation points via Latin Hypercube Sampling. Each point is a (t,x)
@@ -112,7 +115,7 @@ collocation_points = lhs_samples(num_collocation_points)
 
 # Defining the Neural Network
 
-# In[217]:
+# In[233]:
 
 
 class PINN(nn.Module):
@@ -147,14 +150,14 @@ class PINN(nn.Module):
 
 # Loss Function
 
-# In[218]:
+# In[234]:
 
 
 def MSE_f(collocation_points, neural_network, device):
 
     collocation_points = collocation_points.astype(np.float32)
 
-    sum = torch.zeros(1, requires_grad=True)
+    sum = torch.zeros(1, requires_grad=True).to(device)
 
     for i in range(num_collocation_points):
 
@@ -175,13 +178,14 @@ def MSE_f(collocation_points, neural_network, device):
 
 def criterion(output, label, collocation_points, neural_network, device): #collocation_points must be a NUMPY ARRAY
     mse_u = nn.MSELoss()(output, label)
-    mse_f = MSE_f(collocation_points, neural_network, device)
+    print(torch.Tensor.size(mse_u))
+    print(torch.Tensor.size(mse_f))
     return mse_u + mse_f, mse_u.item(), mse_f.item()
 
 
 # Model Training
 
-# In[219]:
+# In[235]:
 
 
 pinn = PINN()
@@ -204,6 +208,7 @@ try:
         for data in trainloader:
 
             input, label = data #input and label already seem to be tensors. Tbh, I am a little confused when this happened. I don't think I ever explicitly turned them into tensors. They used to both be numpy arrays. EDIT: Further research seems to show that dataloader does this automatically as it fetches data from the dataset
+            input = input.to(device)
             label = label.to(device)
 
 
@@ -242,4 +247,6 @@ while os.path.exists(model_save_path):
     model_save_path = os.path.join(base_path, f"{base_name}_{counter}{extension}")
 
 torch.save(pinn.state_dict(), model_save_path)
+
+print("Model saved!")
 
