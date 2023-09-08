@@ -3,7 +3,7 @@
 
 # Import statements
 
-# In[260]:
+# In[16]:
 
 
 import os
@@ -27,19 +27,19 @@ from torch.autograd.functional import jacobian, hessian
 
 # Variables
 
-# In[261]:
+# In[17]:
 
 
 x_bounds = [-1, 1]
 t_bounds = [0, 1]
-num_data_points = 200
-num_collocation_points = 10000
+num_data_points = 2000
+num_collocation_points = 4000
 proportion_t_0 = 0.4 #the proportion of the data points which will exist at various points x along the boundary t = 0. The rest will be split between the boundaries x = -1 and x = 1 for all t
 
 
 # Generating Data
 
-# In[262]:
+# In[18]:
 
 
 num_points_t_0 = (int) (num_data_points * proportion_t_0)
@@ -70,7 +70,7 @@ data_points, labels = map(np.array, map(list, zip(*combined_labels_data)) )
 
 # Preparing the Dataset and Dataloader
 
-# In[263]:
+# In[19]:
 
 
 class PINN_DataSet(Dataset):
@@ -101,7 +101,7 @@ trainloader = DataLoader(
 
 # Collocation Points
 
-# In[264]:
+# In[20]:
 
 
 def lhs_samples(n): #generate n collocation points via Latin Hypercube Sampling. Each point is a (t,x)
@@ -114,7 +114,7 @@ collocation_points = lhs_samples(num_collocation_points)
 
 # Defining the Neural Network
 
-# In[265]:
+# In[21]:
 
 
 class PINN(nn.Module):
@@ -149,7 +149,7 @@ class PINN(nn.Module):
 
 # Loss Function
 
-# In[266]:
+# In[22]:
 
 
 def MSE_f(collocation_points, neural_network, device):
@@ -179,17 +179,18 @@ def criterion(output, label, collocation_points, neural_network, device): #collo
     mse_u = nn.MSELoss()(output, label)
     mse_f = MSE_f(collocation_points, neural_network, device)
     return mse_u + mse_f, mse_u.item(), mse_f.item()
+    #return 100*(mse_u + 1000000*mse_f), mse_u.item(), mse_f.item()
 
 
 # Model Training
 
-# In[267]:
+# In[23]:
 
 
 pinn = PINN()
-optimizer = torch.optim.LBFGS(pinn.parameters())
+optimizer = torch.optim.LBFGS(pinn.parameters(), lr=0.01)
 
-num_epochs = 50 #I have no idea how many epochs were used in the paper's implementation. Let's just do a lot for now and see how quickly training converges
+num_epochs = 20 #I have no idea how many epochs were used in the paper's implementation. Let's just do a lot for now and see how quickly training converges
 
 #use the GPU to train if possible, else CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -199,7 +200,7 @@ pinn.to(device)
 try:
     for epoch in range(num_epochs):
 
-        print(f"EPOCH {epoch} out of {num_epochs}")
+        print(f"EPOCH {epoch + 1} out of {num_epochs}")
         train_running_loss = 0
 
 
@@ -247,4 +248,36 @@ while os.path.exists(model_save_path):
 torch.save(pinn.state_dict(), model_save_path)
 
 print("Model saved!")
+
+
+# Visual Plot (Written Entirely via ChatGPT. For now)
+
+# In[ ]:
+
+
+# 1. Generate Random Points
+num_points = 1000000
+t_values = np.random.rand(num_points)
+x_values = np.random.uniform(-1, 1, num_points)
+points = np.vstack((t_values, x_values)).T
+points_tensor = torch.tensor(points, dtype=torch.float32).to(device)
+
+# 2. Feed the Points through the Model
+with torch.no_grad():
+    model_outputs = pinn(points_tensor).cpu().numpy()
+
+# Normalize the model outputs to be between 0 and 1 for color mapping
+normalized_outputs = (model_outputs - (-1)) / (1 - (-1))
+
+# 3. Color Mapping
+colors = plt.cm.rainbow(normalized_outputs.squeeze())
+
+# 4. Plotting
+plt.figure(figsize=(10, 8))
+plt.scatter(t_values, x_values, c=colors, s=1, alpha=0.5)
+plt.xlabel("t")
+plt.ylabel("x")
+plt.colorbar()
+plt.title("Visualization of Model Outputs")
+plt.show()
 
