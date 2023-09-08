@@ -3,7 +3,7 @@
 
 # Import statements
 
-# In[228]:
+# In[236]:
 
 
 import os
@@ -27,7 +27,7 @@ from torch.autograd.functional import jacobian, hessian
 
 # Variables
 
-# In[229]:
+# In[237]:
 
 
 x_bounds = [-1, 1]
@@ -39,7 +39,7 @@ proportion_t_0 = 0.4 #the proportion of the data points which will exist at vari
 
 # Generating Data
 
-# In[230]:
+# In[238]:
 
 
 num_points_t_0 = (int) (num_data_points * proportion_t_0)
@@ -70,7 +70,7 @@ data_points, labels = map(np.array, map(list, zip(*combined_labels_data)) )
 
 # Preparing the Dataset and Dataloader
 
-# In[231]:
+# In[239]:
 
 
 class PINN_DataSet(Dataset):
@@ -101,7 +101,7 @@ trainloader = DataLoader(
 
 # Collocation Points
 
-# In[232]:
+# In[240]:
 
 
 def lhs_samples(n): #generate n collocation points via Latin Hypercube Sampling. Each point is a (t,x)
@@ -114,7 +114,7 @@ collocation_points = lhs_samples(num_collocation_points)
 
 # Defining the Neural Network
 
-# In[233]:
+# In[241]:
 
 
 class PINN(nn.Module):
@@ -149,7 +149,7 @@ class PINN(nn.Module):
 
 # Loss Function
 
-# In[234]:
+# In[242]:
 
 
 def MSE_f(collocation_points, neural_network, device):
@@ -177,14 +177,12 @@ def MSE_f(collocation_points, neural_network, device):
 
 def criterion(output, label, collocation_points, neural_network, device): #collocation_points must be a NUMPY ARRAY
     mse_u = nn.MSELoss()(output, label)
-    print(torch.Tensor.size(mse_u))
-    print(torch.Tensor.size(mse_f))
     return mse_u + mse_f, mse_u.item(), mse_f.item()
 
 
 # Model Training
 
-# In[235]:
+# In[243]:
 
 
 pinn = PINN()
