@@ -3,7 +3,7 @@
 
 # Import statements
 
-# In[16]:
+# In[1]:
 
 
 import os
@@ -27,19 +27,19 @@ from torch.autograd.functional import jacobian, hessian
 
 # Variables
 
-# In[17]:
+# In[2]:
 
 
 x_bounds = [-1, 1]
 t_bounds = [0, 1]
-num_data_points = 2000
-num_collocation_points = 4000
+num_data_points = 100
+num_collocation_points = 10000
 proportion_t_0 = 0.4 #the proportion of the data points which will exist at various points x along the boundary t = 0. The rest will be split between the boundaries x = -1 and x = 1 for all t
 
 
 # Generating Data
 
-# In[18]:
+# In[3]:
 
 
 num_points_t_0 = (int) (num_data_points * proportion_t_0)
@@ -68,9 +68,42 @@ np.random.shuffle(combined_labels_data)
 data_points, labels = map(np.array, map(list, zip(*combined_labels_data)) )
 
 
+# Data Validation Code
+
+# In[4]:
+
+
+'''# Test 1: Ensure all data points lie on the correct boundaries
+def test_boundaries(data_points):
+    t_values = data_points[:, 0]
+    x_values = data_points[:, 1]
+    assert np.all((t_values == 0) | (x_values == 1) | (x_values == -1)), "Some points do not lie on the correct boundaries."
+
+test_boundaries(data_points)
+print("Test 1 passed!")
+
+# Test 2: For t=0, label should be -sin(pi * x)
+def test_labels_t_0(data_points, labels):
+    mask_t_0 = data_points[:, 0] == 0
+    expected_labels = -np.sin(np.pi * data_points[mask_t_0, 1])
+    assert np.allclose(labels[mask_t_0], expected_labels), "Labels for t=0 do not match -sin(pi * x)."
+
+test_labels_t_0(data_points, labels)
+print("Test 2 passed!")
+
+# Test 3: For x=-1 or x=1, label should be 0
+def test_labels_x_boundaries(data_points, labels):
+    mask_x_boundaries = (data_points[:, 1] == 1) | (data_points[:, 1] == -1)
+    assert np.all(labels[mask_x_boundaries] == 0), "Labels for x=-1 or x=1 are not zero."
+
+test_labels_x_boundaries(data_points, labels)
+print("Test 3 passed!")
+'''
+
+
 # Preparing the Dataset and Dataloader
 
-# In[19]:
+# In[5]:
 
 
 class PINN_DataSet(Dataset):
@@ -101,7 +134,7 @@ trainloader = DataLoader(
 
 # Collocation Points
 
-# In[20]:
+# In[6]:
 
 
 def lhs_samples(n): #generate n collocation points via Latin Hypercube Sampling. Each point is a (t,x)
@@ -114,7 +147,7 @@ collocation_points = lhs_samples(num_collocation_points)
 
 # Defining the Neural Network
 
-# In[21]:
+# In[7]:
 
 
 class PINN(nn.Module):
@@ -137,8 +170,12 @@ class PINN(nn.Module):
             nn.Tanh(),
             nn.Linear(20,20),
             nn.Tanh(),
+            nn.Linear(20,20),
+            nn.Tanh(),
+            nn.Linear(20,20),
+            nn.Tanh(),
             nn.Linear(20,1),
-            nn.Tanh()
+            #nn.Tanh()
 
         )
 
@@ -149,48 +186,50 @@ class PINN(nn.Module):
 
 # Loss Function
 
-# In[22]:
+# In[8]:
 
 
-def MSE_f(collocation_points, neural_network, device):
+def MSE_f(collocation_points, neural_network, device): #I need to better understand how exactly autograd handles vectorization. I think I just waste 6 hours on a wild goose chase due to a misconception about that very fact...
 
-    collocation_points = collocation_points.astype(np.float32)
-
-    sum = torch.zeros(1, requires_grad=True).to(device)
-
-    for i in range(num_collocation_points):
-
-        collocation_input = torch.tensor(collocation_points[i] , requires_grad=True).to(device)
-        u = neural_network(collocation_input)
-        u_derivs, = torch.autograd.grad(u, collocation_input, retain_graph=True, create_graph=True)
-        u_t = u_derivs[0]
-        u_x = u_derivs[1]
-        u_second_derivs, = torch.autograd.grad(u_x, collocation_input, retain_graph=True, create_graph=True)
-        u_xx = u_second_derivs[1]
-        sum = sum + (u_t + u*u_x - (0.01/torch.pi)*u_xx)**2
-
-
-    return (sum/num_collocation_points).squeeze() #get rid of unnecessary dimension: [N, 1] to [N]
-
-
+    collocation_inputs = torch.tensor(collocation_points.astype(np.float32), requires_grad=True).to(device)
     
+    u = neural_network(collocation_inputs)
+    results, = torch.autograd.grad(u, collocation_inputs, grad_outputs=torch.ones_like(u), retain_graph=True, create_graph=True)
+    u_t = results[:,0]
+    u_x = results[:,1]
+    snd_result, = torch.autograd.grad(u_x, collocation_inputs, grad_outputs=torch.ones_like(u_x), retain_graph=True, create_graph=True)
+    u_xx = snd_result[:,1]
+    return torch.mean((u_t + u*u_x - (0.01/torch.pi)*u_xx)**2)
+    
+def MSE_u(output, label):
+    return torch.mean((output - label)**2)
+
 
 def criterion(output, label, collocation_points, neural_network, device): #collocation_points must be a NUMPY ARRAY
-    mse_u = nn.MSELoss()(output, label)
-    mse_f = MSE_f(collocation_points, neural_network, device)
+    #mse_u = nn.MSELoss()(output, label).squeeze()
+    mse_u = MSE_u(output, label).squeeze()
+    mse_f = MSE_f(collocation_points, neural_network, device).squeeze()
     return mse_u + mse_f, mse_u.item(), mse_f.item()
-    #return 100*(mse_u + 1000000*mse_f), mse_u.item(), mse_f.item()
+    #return 10*(mse_u + mse_f), mse_u.item(), mse_f.item()
 
 
 # Model Training
 
-# In[23]:
+# In[9]:
 
 
 pinn = PINN()
-optimizer = torch.optim.LBFGS(pinn.parameters(), lr=0.01)
+optimizer = torch.optim.LBFGS(pinn.parameters(), #PARAMETERS CREDIT TO https://github.com/teeratornk/PINNs-2/blob/master/Burgers%20Equation/Burgers%20Inference%20(PyTorch).ipynb
+                              lr=1.0,
+                              max_iter=50000, 
+                                max_eval=50000, 
+                                history_size=50,
+                                tolerance_grad=1e-5, 
+                                tolerance_change=1.0 * np.finfo(float).eps,
+                                line_search_fn="strong_wolfe"
+                              )
 
-num_epochs = 20 #I have no idea how many epochs were used in the paper's implementation. Let's just do a lot for now and see how quickly training converges
+num_epochs = 1 #I have no idea how many epochs were used in the paper's implementation. Let's just do a lot for now and see how quickly training converges
 
 #use the GPU to train if possible, else CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -212,7 +251,6 @@ try:
 
 
             def closure():
-
                 optimizer.zero_grad() #reset the gradient so that the previous iteration does not affect the current one
                 output = pinn(input) #run the batch through the current model
                 loss, mse_u, mse_f = criterion(output, label, collocation_points, pinn, device) #calculate the loss
@@ -231,7 +269,7 @@ print("TRAINING COMPLETE!")
 
 # Saving the Code
 
-# In[ ]:
+# In[10]:
 
 
 base_path = "./"
@@ -250,9 +288,9 @@ torch.save(pinn.state_dict(), model_save_path)
 print("Model saved!")
 
 
-# Visual Plot (Written Entirely via ChatGPT. For now)
+# Visual Plot
 
-# In[ ]:
+# In[11]:
 
 
 # 1. Generate Random Points
