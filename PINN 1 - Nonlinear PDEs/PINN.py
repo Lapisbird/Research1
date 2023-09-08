@@ -3,7 +3,7 @@
 
 # Import statements
 
-# In[252]:
+# In[260]:
 
 
 import os
@@ -27,19 +27,19 @@ from torch.autograd.functional import jacobian, hessian
 
 # Variables
 
-# In[253]:
+# In[261]:
 
 
 x_bounds = [-1, 1]
 t_bounds = [0, 1]
-num_data_points = 100
-num_collocation_points = 1000
+num_data_points = 200
+num_collocation_points = 10000
 proportion_t_0 = 0.4 #the proportion of the data points which will exist at various points x along the boundary t = 0. The rest will be split between the boundaries x = -1 and x = 1 for all t
 
 
 # Generating Data
 
-# In[254]:
+# In[262]:
 
 
 num_points_t_0 = (int) (num_data_points * proportion_t_0)
@@ -70,7 +70,7 @@ data_points, labels = map(np.array, map(list, zip(*combined_labels_data)) )
 
 # Preparing the Dataset and Dataloader
 
-# In[255]:
+# In[263]:
 
 
 class PINN_DataSet(Dataset):
@@ -101,7 +101,7 @@ trainloader = DataLoader(
 
 # Collocation Points
 
-# In[256]:
+# In[264]:
 
 
 def lhs_samples(n): #generate n collocation points via Latin Hypercube Sampling. Each point is a (t,x)
@@ -114,7 +114,7 @@ collocation_points = lhs_samples(num_collocation_points)
 
 # Defining the Neural Network
 
-# In[257]:
+# In[265]:
 
 
 class PINN(nn.Module):
@@ -149,7 +149,7 @@ class PINN(nn.Module):
 
 # Loss Function
 
-# In[258]:
+# In[266]:
 
 
 def MSE_f(collocation_points, neural_network, device):
@@ -183,13 +183,13 @@ def criterion(output, label, collocation_points, neural_network, device): #collo
 
 # Model Training
 
-# In[259]:
+# In[267]:
 
 
 pinn = PINN()
 optimizer = torch.optim.LBFGS(pinn.parameters())
 
-num_epochs = 10 #I have no idea how many epochs were used in the paper's implementation. Let's just do a lot for now and see how quickly training converges
+num_epochs = 50 #I have no idea how many epochs were used in the paper's implementation. Let's just do a lot for now and see how quickly training converges
 
 #use the GPU to train if possible, else CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
