@@ -1,0 +1,1 @@
+My previous PINN attempts have not been working for some reason I ill understand. I will build a PINN from the ground up by first building the simplest of NNs, and then introducing features of the PINN one-by-one. Each new feature will be implemented on a copy of the previous functioning step.
