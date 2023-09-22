@@ -35,5 +35,14 @@ Apart from these minor inspirations, the rest of the code in my final GroundUpPI
 Even now, with the long-eluded goal of a functional model achieved, I do not know precisely why my original implementations failed. However, having already spent many dozens of hours attempting to fix it, I have decided to no longer pursue an exact answer. My assumption is that it stems from some trivial error in the code that I have simply failed to catch.
 
 
+UPDATE 9/22/2023:
 
+I ended up spending some time trying to diagnose the reasoning behind my original PINN's failure by systemically replacing componenets with code from my new, working PINN. And I found the issue.
 
+What was it?
+
+The issue was that the labels had shape [n] instead of [n, 1].
+
+For some reason, with shape [n], the code still ran without exceptions, but result in the previously discussed failure to properly converge.
+
+I am certainly less than pleased that dozens of hours of work had to be spent to diagnose such a trivial error. However, I am also glad to have had the experience. Not only have I now learned to respect the subtly and fragility of the training process; code without exceptions does not equate with code without errors. But I have also learned and gained familiarility with much of PyTorch in a deeper way through my hunt for the issue.
