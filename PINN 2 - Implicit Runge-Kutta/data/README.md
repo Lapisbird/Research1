@@ -1,0 +1,1 @@
+CREDIT TO https://github.com/maziarraissi/PINNs/tree/master FOR THIS DATA
